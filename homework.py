@@ -2,14 +2,24 @@ import logging
 import os
 import time
 from http import HTTPStatus
+
 import requests
 import telegram
 from dotenv import load_dotenv
 from requests.exceptions import RequestException
 
-from exceptions import (ResponseError, StatusCodeError, TokenError)
+from exceptions import ResponseError, StatusCodeError, TokenError
+from messages import (API_ANSWER_ERROR, ERROR_MESSAGE, HOMEWORK_NAME_NOT_FOUND,
+                      HOMEWORKS_NOT_IN_RESPONSE, HOMEWORKS_NOT_LIST,
+                      RESPONSE_ERROR, RESPONSE_NOT_DICT, SEND_MESSAGE_ERROR,
+                      SEND_MESSAGE_INFO, STATUS_CODE_ERROR, TOKEN_ERROR,
+                      UNKNOWN_STATUS_ERROR)
 
 load_dotenv()
+
+# С этими двумя не сработало, pytest не пропустил
+CHANGED_STATUS = 'Изменился статус проверки работы "{}". {}'
+TOKEN_NOT_FOUND = 'Токен {} не найден!'
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -27,27 +37,6 @@ VERDICTS = {
 
 TOKENS = ('PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID')
 
-# Я подумал, чтобы лучше выглядело, нужно
-# вынести сообщения об ошибках в отдельные переменные.
-SEND_MESSAGE_INFO = 'Отправлено сообщение: "{}"'
-API_ANSWER_ERROR = ('Ошибка подключения к API: {error}. '
-                    'endpoint: {url}, headers: {headers}, params: {params}')
-RESPONSE_ERROR = ('Отказ от обслуживания: {error}, key {key}. '
-                  'endpoint: {url}, headers: {headers}, params: {params}')
-STATUS_CODE_ERROR = ('Ошибка при запросе к API: '
-                     'status_code: {status_code}, endpoint: {url}, '
-                     'headers: {headers}, params: {params}')
-UNKNOWN_STATUS_ERROR = 'Неизвестный статус: {}'
-CHANGED_STATUS = 'Изменился статус проверки работы "{}". {}'
-RESPONSE_NOT_DICT = 'Ответ API не является словарем'
-HOMEWORKS_NOT_IN_RESPONSE = 'Отсутствует ключ homeworks'
-HOMEWORKS_NOT_LIST = 'Под ключом `homeworks` домашки приходят не в виде списка'
-TOKEN_NOT_FOUND = 'Токен {} не найден!'
-ERROR_MESSAGE = 'Сбой в работе программы: {}'
-HOMEWORK_NAME_NOT_FOUND = 'Не найден ключ `homework_name`!'
-SEND_MESSAGE_ERROR = 'Ошибка при отправке сообщения: {}'
-TOKEN_ERROR = 'Ошибка в токенах!'
-
 
 def send_message(bot, message):
     """Отправка сообщения об изменении статуса."""
@@ -60,8 +49,6 @@ def send_message(bot, message):
 
 def get_api_answer(current_timestamp):
     """Запрос к эндпоинту API-сервиса."""
-# Я сделал это словарём, так как в этой функции
-# эти параметры много где используются. DRY!
     parameters = dict(
         url=ENDPOINT,
         headers=HEADERS,
@@ -88,29 +75,32 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверка ответа API на корректность."""
-    if isinstance(response, dict) is not True:
+    if isinstance(response, dict) is False:
         raise TypeError(RESPONSE_NOT_DICT)
-    if response.get('homeworks', None) is None:
+    elif response.get('homeworks') is None:
         raise KeyError(HOMEWORKS_NOT_IN_RESPONSE)
-    if isinstance(response['homeworks'], list) is not True:
+    elif isinstance(response['homeworks'], list) is False:
         raise TypeError(HOMEWORKS_NOT_LIST)
-    return response.get('homeworks')
+    else:
+        return response.get('homeworks')
 
 
 def parse_status(homework):
     """Извлечение из информации о домашней работе статуса этой работы."""
-    if homework.get('homework_name', None) is None:
+    if homework.get('homework_name') is None:
         raise KeyError(HOMEWORK_NAME_NOT_FOUND)
     if homework['status'] not in VERDICTS:
         raise ValueError(UNKNOWN_STATUS_ERROR.format(homework['status']))
-    return (CHANGED_STATUS.format(
-        homework['homework_name'],
-        VERDICTS.get(homework['status'])))
+    else:
+        return (CHANGED_STATUS.format(
+            homework['homework_name'],
+            VERDICTS.get(homework['status'])))
 
 
 def check_tokens():
     """Проверка наличия токенов."""
     flag = True
+# Тут нужно преребрать токены, я просто не знаю как иначе
     for name in TOKENS:
         if globals()[name] is None:
             logging.critical(TOKEN_NOT_FOUND.format(name))
