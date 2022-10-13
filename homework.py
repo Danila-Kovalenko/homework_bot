@@ -75,11 +75,11 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверка ответа API на корректность."""
-    if isinstance(response, dict) is False:
+    if not isinstance(response, dict):
         raise TypeError(RESPONSE_NOT_DICT)
     elif response.get('homeworks') is None:
         raise KeyError(HOMEWORKS_NOT_IN_RESPONSE)
-    elif isinstance(response['homeworks'], list) is False:
+    elif not isinstance(response['homeworks'], list):
         raise TypeError(HOMEWORKS_NOT_LIST)
     else:
         return response.get('homeworks')
@@ -87,20 +87,22 @@ def check_response(response):
 
 def parse_status(homework):
     """Извлечение из информации о домашней работе статуса этой работы."""
-    if homework.get('homework_name') is None:
-        raise KeyError(HOMEWORK_NAME_NOT_FOUND)
-    if homework['status'] not in VERDICTS:
-        raise ValueError(UNKNOWN_STATUS_ERROR.format(homework['status']))
+    name = homework['homework_name']
+    status = homework['status']
+    if name is None:
+        raise ValueError(HOMEWORK_NAME_NOT_FOUND)
+    if status not in VERDICTS:
+        raise ValueError(UNKNOWN_STATUS_ERROR.format(status))
     else:
         return (CHANGED_STATUS.format(
-            homework['homework_name'],
+            name,
             VERDICTS.get(homework['status'])))
 
 
 def check_tokens():
     """Проверка наличия токенов."""
     flag = True
-# Тут нужно преребрать токены, я просто не знаю как иначе
+# Оба варианта выдали ошибки, лучше уж так
     for name in TOKENS:
         if globals()[name] is None:
             logging.critical(TOKEN_NOT_FOUND.format(name))
